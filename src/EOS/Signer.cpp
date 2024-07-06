@@ -85,7 +85,7 @@ void Signer::sign(const PrivateKey& privateKey, Type type, Transaction& transact
 
     const Data result = privateKey.sign(hash(transaction), curve, canonicalChecker);
 
-    transaction.signatures.push_back(Signature(result, type));
+    transaction.signatures.emplace_back(Signature(result, type));
 }
 
 TW::Data Signer::hash(const Transaction& transaction) const noexcept {
@@ -102,7 +102,7 @@ TW::Data Signer::hash(const Transaction& transaction) const noexcept {
 }
 
 // canonical check for EOS
-int Signer::isCanonical(uint8_t by, uint8_t sig[64]) {
+int Signer::isCanonical([[maybe_unused]] uint8_t by, uint8_t sig[64]) {
     return !(sig[0] & 0x80) 
         && !(sig[0] == 0 && !(sig[1] & 0x80))
         && !(sig[32] & 0x80)

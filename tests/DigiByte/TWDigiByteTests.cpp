@@ -19,6 +19,9 @@
 using namespace TW;
 using namespace TW::Bitcoin;
 
+namespace TW::Bitcoin::tests {
+
+// clang-format off
 TEST(DigiByteTransaction, SignTransaction) {
     /*
         https://iancoleman.io/bip39/
@@ -57,16 +60,13 @@ TEST(DigiByteTransaction, SignTransaction) {
     plan.fee = fee;
     plan.change = utxo_amount - amount - fee;
 
-    auto &protoPlan = *input.mutable_plan();
+    auto& protoPlan = *input.mutable_plan();
     protoPlan = plan.proto();
 
     // Sign
-    auto signer = TransactionSigner<Transaction, TransactionBuilder>(std::move(input));
-    auto result = signer.sign();
+    auto result = TransactionSigner<Transaction, TransactionBuilder>::sign(Bitcoin::SigningInput(input));
     auto signedTx = result.payload();
-
     ASSERT_TRUE(result);
-    ASSERT_EQ(fee, signer.plan.fee);
 
     Data serialized;
     signedTx.encode(serialized, Transaction::SegwitFormatMode::NonSegwit);
@@ -85,7 +85,7 @@ TEST(DigiByteTransaction, SignTransaction) {
             "18053d0000000000""19"
             "76a91447825943ca6a936b177fdc7c9dc05251640169c288ac"
         "00000000"
-    ); 
+    );
 }
 
 TEST(DigiByteTransaction, SignP2WPKH) {
@@ -119,19 +119,18 @@ TEST(DigiByteTransaction, SignP2WPKH) {
     utxo0->mutable_out_point()->set_index(1);
     utxo0->mutable_out_point()->set_sequence(UINT32_MAX);
 
-    auto signer = TransactionSigner<Transaction, TransactionBuilder>(std::move(input));
-    auto result = signer.sign();
+    auto result = TransactionSigner<Transaction, TransactionBuilder>::sign(input);
     ASSERT_TRUE(result) << std::to_string(result.error());
     auto signedTx = result.payload();
 
     Data serialized;
-    signer.encodeTx(signedTx, serialized);
+    signedTx.encode(serialized);
     ASSERT_EQ(hex(serialized), "0100000000010180a16412a880d13b0c88929397a50341018da2e78b70b313062b4a496fea59400100000000ffffffff0280841e00000000001600145c91bc8d2073529224e8be0764128ac22f000564d3351e00000000001600144b62694cfdd7bdac59cbed211288ccd5c0dabd0202473044022057b876880b6c98511d9e5baab00428c50bf96868bdf4dc50bd61c2477ed8438b0220312ff89a078ab5a38b7b909ceb58310d93a5b4e2d637b37b77c4d7baf35a1815012102ac2e56f40d38530fcbf21f1eba0c3c668aa839cda8f2c615e99df44b6447772600000000");
 }
 
 TEST(DigiByteTransaction, LockScripts) {
     // https://dgb2.trezor.io/tx/966b80caa754148158339a0fa70363996f15819599adf72de0eb3590c3bd63ea
-    
+
     auto script = WRAP(TWBitcoinScript, TWBitcoinScriptLockScriptForAddress(STRING("DBfCffUdSbhqKZhjuvrJ6AgvJofT4E2kp4").get(), TWCoinTypeDigiByte));
     auto scriptData = WRAPD(TWBitcoinScriptData(script.get()));
     assertHexEqual(scriptData, "76a91447825943ca6a936b177fdc7c9dc05251640169c288ac");
@@ -141,8 +140,11 @@ TEST(DigiByteTransaction, LockScripts) {
     assertHexEqual(scriptData2, "0014885534ab5dc680b68d95c0af49ec2acc2e9915c4");
 
     // https://dgb2.trezor.io/tx/965eb4afcd0aa6e3f4f8fc3513ca042f09e6e2235367fa006cbd1f546c293a2a
-    
+
     auto script3 = WRAP(TWBitcoinScript, TWBitcoinScriptLockScriptForAddress(STRING("SUngTA1vaC2E62mbnc81Mdos3TcvZHwsVo").get(), TWCoinTypeDigiByte));
     auto scriptData3 = WRAPD(TWBitcoinScriptData(script3.get()));
     assertHexEqual(scriptData3, "a91452356ed3d2d31eb8b263ace5d164e3cf3b37096687");
+}
+
+// clang-format on
 }

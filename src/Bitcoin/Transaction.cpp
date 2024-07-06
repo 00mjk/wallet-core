@@ -1,13 +1,14 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2021 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
 // file LICENSE at the root of the source code distribution tree.
 
-#include "SegwitAddress.h"
 #include "Transaction.h"
+#include "SegwitAddress.h"
 #include "SigHashType.h"
 #include "../BinaryCoding.h"
+#include "Data.h"
 #include "../Hash.h"
 
 #include "SignatureVersion.h"
@@ -24,7 +25,7 @@ Data Transaction::getPreImage(const Script& scriptCode, size_t index,
     Data data;
 
     // Version
-    encode32LE(version, data);
+    encode32LE(_version, data);
 
     // Input prevouts (none/all, depending on flags)
     if ((hashType & TWBitcoinSigHashTypeAnyoneCanPay) == 0) {
@@ -35,8 +36,8 @@ Data Transaction::getPreImage(const Script& scriptCode, size_t index,
     }
 
     // Input nSequence (none/all, depending on flags)
-    if ((hashType & TWBitcoinSigHashTypeAnyoneCanPay) == 0 &&
-        !hashTypeIsSingle(hashType) && !hashTypeIsNone(hashType)) {
+    if ((hashType & TWBitcoinSigHashTypeAnyoneCanPay) == 0 && !hashTypeIsSingle(hashType) &&
+        !hashTypeIsNone(hashType)) {
         auto hashSequence = getSequenceHash();
         std::copy(std::begin(hashSequence), std::end(hashSequence), std::back_inserter(data));
     } else {
@@ -46,7 +47,7 @@ Data Transaction::getPreImage(const Script& scriptCode, size_t index,
     // The input being signed (replacing the scriptSig with scriptCode + amount)
     // The prevout may already be contained in hashPrevout, and the nSequence
     // may already be contain in hashSequence.
-    reinterpret_cast<const TW::Bitcoin::OutPoint&>(inputs[index].previousOutput).encode(data);
+    reinterpret_cast<const OutPoint&>(inputs[index].previousOutput).encode(data);
     scriptCode.encode(data);
 
     encode64LE(amount, data);
@@ -59,7 +60,7 @@ Data Transaction::getPreImage(const Script& scriptCode, size_t index,
     } else if (hashTypeIsSingle(hashType) && index < outputs.size()) {
         Data outputData;
         outputs[index].encode(outputData);
-        auto hashOutputs = TW::Hash::hash(hasher, outputData);
+        auto hashOutputs = Hash::hash(hasher, outputData);
         copy(begin(hashOutputs), end(hashOutputs), back_inserter(data));
     } else {
         fill_n(back_inserter(data), 32, 0);
@@ -77,10 +78,10 @@ Data Transaction::getPreImage(const Script& scriptCode, size_t index,
 Data Transaction::getPrevoutHash() const {
     Data data;
     for (auto& input : inputs) {
-        auto& outpoint = reinterpret_cast<const TW::Bitcoin::OutPoint&>(input.previousOutput);
+        auto& outpoint = reinterpret_cast<const OutPoint&>(input.previousOutput);
         outpoint.encode(data);
     }
-    auto hash = TW::Hash::hash(hasher, data);
+    auto hash = Hash::hash(hasher, data);
     return hash;
 }
 
@@ -89,7 +90,7 @@ Data Transaction::getSequenceHash() const {
     for (auto& input : inputs) {
         encode32LE(input.sequence, data);
     }
-    auto hash = TW::Hash::hash(hasher, data);
+    auto hash = Hash::hash(hasher, data);
     return hash;
 }
 
@@ -98,19 +99,25 @@ Data Transaction::getOutputsHash() const {
     for (auto& output : outputs) {
         output.encode(data);
     }
-    auto hash = TW::Hash::hash(hasher, data);
+    auto hash = Hash::hash(hasher, data);
     return hash;
 }
 
 void Transaction::encode(Data& data, enum SegwitFormatMode segwitFormat) const {
     bool useWitnessFormat = true;
     switch (segwitFormat) {
-        case NonSegwit: useWitnessFormat = false; break;
-        case IfHasWitness: useWitnessFormat = hasWitness(); break;
-        case Segwit: useWitnessFormat = true; break;
+    case NonSegwit:
+        useWitnessFormat = false;
+        break;
+    case IfHasWitness:
+        useWitnessFormat = hasWitness();
+        break;
+    case Segwit:
+        useWitnessFormat = true;
+        break;
     }
 
-    encode32LE(version, data);
+    encode32LE(_version, data);
 
     if (useWitnessFormat) {
         // Use extended format in case witnesses are to be serialized.
@@ -144,18 +151,17 @@ void Transaction::encodeWitness(Data& data) const {
 }
 
 bool Transaction::hasWitness() const {
-    return std::any_of(inputs.begin(), inputs.end(), [](auto& input) { return !input.scriptWitness.empty(); });    
+    return std::any_of(inputs.begin(), inputs.end(), [](auto& input) { return !input.scriptWitness.empty(); });
 }
 
 Data Transaction::getSignatureHash(const Script& scriptCode, size_t index,
                                    enum TWBitcoinSigHashType hashType, uint64_t amount,
                                    enum SignatureVersion version) const {
-    switch (version) {
-    case BASE:
+    if (version == BASE) {
         return getSignatureHashBase(scriptCode, index, hashType);
-    case WITNESS_V0:
-        return getSignatureHashWitnessV0(scriptCode, index, hashType, amount);
     }
+    // version == WITNESS_V0
+    return getSignatureHashWitnessV0(scriptCode, index, hashType, amount);
 }
 
 /// Generates the signature hash for Witness version 0 scripts.
@@ -163,7 +169,7 @@ Data Transaction::getSignatureHashWitnessV0(const Script& scriptCode, size_t ind
                                             enum TWBitcoinSigHashType hashType,
                                             uint64_t amount) const {
     auto preimage = getPreImage(scriptCode, index, hashType, amount);
-    auto hash = TW::Hash::hash(hasher, preimage);
+    auto hash = Hash::hash(hasher, preimage);
     return hash;
 }
 
@@ -174,12 +180,12 @@ Data Transaction::getSignatureHashBase(const Script& scriptCode, size_t index,
 
     Data data;
 
-    encode32LE(version, data);
+    encode32LE(_version, data);
 
     auto serializedInputCount =
         (hashType & TWBitcoinSigHashTypeAnyoneCanPay) != 0 ? 1 : inputs.size();
     encodeVarInt(serializedInputCount, data);
-    for (auto subindex = 0; subindex < serializedInputCount; subindex += 1) {
+    for (auto subindex = 0ul; subindex < serializedInputCount; subindex += 1) {
         serializeInput(subindex, scriptCode, index, hashType, data);
     }
 
@@ -187,7 +193,7 @@ Data Transaction::getSignatureHashBase(const Script& scriptCode, size_t index,
     auto hashSingle = hashTypeIsSingle(hashType);
     auto serializedOutputCount = hashNone ? 0 : (hashSingle ? index + 1 : outputs.size());
     encodeVarInt(serializedOutputCount, data);
-    for (auto subindex = 0; subindex < serializedOutputCount; subindex += 1) {
+    for (auto subindex = 0ul; subindex < serializedOutputCount; subindex += 1) {
         if (hashSingle && subindex != index) {
             auto output = TransactionOutput(-1, {});
             output.encode(data);
@@ -202,7 +208,7 @@ Data Transaction::getSignatureHashBase(const Script& scriptCode, size_t index,
     // Sighash type
     encode32LE(hashType, data);
 
-    auto hash = TW::Hash::hash(hasher, data);
+    auto hash = Hash::hash(hasher, data);
     return hash;
 }
 
@@ -214,7 +220,7 @@ void Transaction::serializeInput(size_t subindex, const Script& scriptCode, size
         subindex = index;
     }
 
-    reinterpret_cast<const TW::Bitcoin::OutPoint&>(inputs[subindex].previousOutput).encode(data);
+    reinterpret_cast<const OutPoint&>(inputs[subindex].previousOutput).encode(data);
 
     // Serialize the script
     if (subindex != index) {
@@ -235,11 +241,11 @@ void Transaction::serializeInput(size_t subindex, const Script& scriptCode, size
 
 Proto::Transaction Transaction::proto() const {
     auto protoTx = Proto::Transaction();
-    protoTx.set_version(version);
+    protoTx.set_version(_version);
     protoTx.set_locktime(lockTime);
 
     for (const auto& input : inputs) {
-        auto protoInput = protoTx.add_inputs();
+        auto* protoInput = protoTx.add_inputs();
         protoInput->mutable_previousoutput()->set_hash(input.previousOutput.hash.data(),
                                                        input.previousOutput.hash.size());
         protoInput->mutable_previousoutput()->set_index(input.previousOutput.index);
@@ -248,7 +254,7 @@ Proto::Transaction Transaction::proto() const {
     }
 
     for (const auto& output : outputs) {
-        auto protoOutput = protoTx.add_outputs();
+        auto* protoOutput = protoTx.add_outputs();
         protoOutput->set_value(output.value);
         protoOutput->set_script(output.script.bytes.data(), output.script.bytes.size());
     }

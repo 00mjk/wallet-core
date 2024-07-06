@@ -26,7 +26,7 @@ static const string mnemonic1 = "edge defense waste choose enrich upon flee junk
 
 int countLines(const string& text) {
     int lines = 0;
-    for(int i = 0; i < text.length(); ++i)
+    for(auto i = 0ul; i < text.length(); ++i)
     {
         if (text[i] == '\n') ++lines;
     }
@@ -90,7 +90,7 @@ TEST(WalletConsole, coin) {
     }
     {
         auto pos = outputss.str().length();
-        cmd.executeLine("coin eth");
+        cmd.executeLine("coin ethereum");
         string res = outputss.str().substr(pos);
         EXPECT_TRUE(res.find("Set active coin to: ethereum") != string::npos);
     }

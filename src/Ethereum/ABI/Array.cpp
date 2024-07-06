@@ -1,4 +1,4 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2022 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
@@ -7,29 +7,47 @@
 #include "Array.h"
 #include "ParamFactory.h"
 #include "ValueEncoder.h"
+#include <Hash.h>
+
+#include <nlohmann/json.hpp>
 
 #include <cassert>
 
-using namespace TW::Ethereum::ABI;
+namespace TW::Ethereum::ABI {
+
+using namespace TW;
+using json = nlohmann::json;
 
 int ParamArray::addParam(const std::shared_ptr<ParamBase>& param) {
     assert(param != nullptr);
-    if (param == nullptr) { return -1; }
-    if (_params.getCount() >= 1 && param->getType() != getFirstType()) { return -2; } // do not add different types
+    if (param == nullptr) {
+        return -1;
+    }
+    if (_params.getCount() >= 1 && param->getType() != getProtoType()) {
+        return -2;
+    } // do not add different types
     return _params.addParam(param);
 }
 
 void ParamArray::addParams(const std::vector<std::shared_ptr<ParamBase>>& params) {
-    for (auto p: params) { addParam(p); }
+    for (auto p : params) {
+        addParam(p);
+    }
 }
 
-std::string ParamArray::getFirstType() const {
-    if (_params.getCount() == 0) { return "empty"; }
-    return _params.getParamUnsafe(0)->getType();
+std::shared_ptr<ParamBase> ParamArray::getProtoElem() const {
+    if (_params.getCount() >= 1) {
+        return _params.getParamUnsafe(0);
+    }
+    return _proto;
 }
 
-size_t ParamArray::getSize() const
-{
+std::string ParamArray::getProtoType() const {
+    const auto proto = getProtoElem();
+    return (proto != nullptr) ? proto->getType() : "__empty__";
+}
+
+size_t ParamArray::getSize() const {
     return 32 + _params.getSize();
 }
 
@@ -47,7 +65,7 @@ bool ParamArray::decode(const Data& encoded, size_t& offset_inout) {
         return false;
     }
     // check if length is in the size_t range
-    size_t len = static_cast<size_t>(len256);
+    auto len = static_cast<size_t>(len256);
     if (len256 != uint256_t(len)) {
         return false;
     }
@@ -72,3 +90,83 @@ bool ParamArray::decode(const Data& encoded, size_t& offset_inout) {
     offset_inout = origOffset + ValueEncoder::paddedTo32(offset_inout - origOffset);
     return res;
 }
+
+bool ParamArray::setValueJson(const std::string& value) {
+    if (_params.getCount() < 1) {
+        // no single element
+        return false;
+    }
+    auto valuesJson = json::parse(value, nullptr, false);
+    if (valuesJson.is_discarded()) {
+        return false;
+    }
+    if (!valuesJson.is_array()) {
+        return false;
+    }
+    // make sure enough elements are in the array
+    while (_params.getCount() < valuesJson.size()) {
+        addParam(ParamFactory::make(getProtoType()));
+    }
+    int cnt = 0;
+    for (const auto& e : valuesJson) {
+        std::string eString = e.is_string() ? e.get<std::string>() : e.dump();
+        _params.getParamUnsafe(cnt)->setValueJson(eString);
+        ++cnt;
+    }
+    return true;
+}
+
+Data ParamArray::hashStruct() const {
+    if (_params.getCount() == 0) {
+        return Hash::keccak256(Data());
+    }
+    Data hash(32);
+    Data hashes = _params.encodeHashes();
+    if (hashes.size() > 0) {
+        hash = Hash::keccak256(hashes);
+    }
+    return hash;
+}
+
+std::string ParamArray::getExtraTypes(std::vector<std::string>& ignoreList) const {
+    const auto& proto = getProtoElem();
+    return (proto != nullptr) ? proto->getExtraTypes(ignoreList) : "";
+}
+
+void ParamArrayFix::encode(Data& data) const {
+    this->_params.encode(data);
+}
+
+bool ParamArrayFix::decode(const Data& encoded, size_t& offset_inout) {
+    return this->_params.decode(encoded, offset_inout);
+}
+
+bool ParamArrayFix::setValueJson(const std::string& value) {
+    auto valuesJson = json::parse(value, nullptr, false);
+    if (valuesJson.is_discarded() || !valuesJson.is_array() || _params.getCount() != valuesJson.size()) {
+        return false;
+    }
+
+    std::size_t idx{0};
+    for (auto&& e : valuesJson) {
+        std::string eString = e.is_string() ? e.get<std::string>() : e.dump();
+        _params.getParamUnsafe(idx)->setValueJson(eString);
+        ++idx;
+    }
+    return true;
+}
+
+void ParamArrayFix::addParams(const Params& params) {
+    auto addParamFunctor = [this](auto&& param) {
+        if (param == nullptr) {
+            throw std::runtime_error("param can't be nullptr");
+        }
+        if (_params.getCount() >= 1 && param->getType() != _params.getParamUnsafe(0)->getType()) {
+            throw std::runtime_error("params need to be the same type");
+        } // do not add different types
+        _params.addParam(param);
+    };
+    std::for_each(begin(params), end(params), addParamFunctor);
+}
+
+} // namespace TW::Ethereum::ABI

@@ -7,7 +7,7 @@
 #include <ctype.h>
 
 #include "../uint256.h"
-#include "../Data.h"
+#include "Data.h"
 #include "../Hash.h"
 #include "Transaction.h"
 #include "MinerTransaction.h"
@@ -59,8 +59,8 @@ Data Transaction::serialize() const {
     if(witnesses.size())
 	 {
 		resp.push_back((byte) witnesses.size());
-		for (int i = 0; i < witnesses.size(); i++)
-		  append(resp, witnesses[i].serialize());
+		for (const auto& witnesse : witnesses)
+		  append(resp, witnesse.serialize());
 	 }
 
     return resp;

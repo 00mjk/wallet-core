@@ -1,4 +1,4 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2022 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
@@ -21,10 +21,11 @@ class PublicKey {
     /// The number of bytes in a secp256k1 and nist256p1 public key.
     static const size_t secp256k1Size = 33;
 
-    /// The number of bytes in a ed25519 public key.
+    /// The number of bytes in an ed25519 public key.
     static const size_t ed25519Size = 32;
 
-    static const size_t ed25519ExtendedSize = 64;
+    /// The number of bytes in a Cardano public key (two ed25519 public key + chain code).
+    static const size_t cardanoKeySize = 2 * 2 * 32;
 
     /// The number of bytes in a secp256k1 and nist256p1 extended public key.
     static const size_t secp256k1ExtendedSize = 65;
@@ -44,7 +45,7 @@ class PublicKey {
 
     /// Initializes a public key with a collection of bytes.
     ///
-    /// @throws std::invalid_argument if the data is not a valid public key.
+    /// \throws std::invalid_argument if the data is not a valid public key.
     explicit PublicKey(const Data& data, enum TWPublicKeyType type);
 
     /// Determines if this is a compressed public key.
@@ -61,14 +62,17 @@ class PublicKey {
     /// Verifies a signature for the provided message.
     bool verify(const Data& signature, const Data& message) const;
 
-    /// Verifies a schnorr signature for the provided message.
-    bool verifySchnorr(const Data& signature, const Data& message) const;
+    /// Verifies a signature in DER format.
+    bool verifyAsDER(const Data& signature, const Data& message) const;
+
+    /// Verifies a Zilliqa schnorr signature for the provided message.
+    bool verifyZilliqa(const Data& signature, const Data& message) const;
 
     /// Computes the public key hash.
     ///
     /// The public key hash is computed by applying the hasher to the public key
     /// bytes and then prepending the prefix.
-    Data hash(const Data& prefix, Hash::Hasher hasher = Hash::sha256ripemd, bool skipTypeByte = false) const;
+    Data hash(const Data& prefix, Hash::Hasher hasher = Hash::HasherSha256ripemd, bool skipTypeByte = false) const;
 
     /// Recover public key from signature (SECP256k1Extended)
     static PublicKey recover(const Data& signature, const Data& message);

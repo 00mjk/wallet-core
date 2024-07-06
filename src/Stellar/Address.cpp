@@ -5,9 +5,9 @@
 // file LICENSE at the root of the source code distribution tree.
 
 #include "Address.h"
+#include "Crc.h"
 #include "../Base32.h"
 #include "../HexCoding.h"
-#include "Crc.h"
 
 #include <TrezorCrypto/memzero.h>
 #include <TrustWalletCore/TWStellarVersionByte.h>
@@ -15,7 +15,7 @@
 #include <array>
 #include <cassert>
 
-using namespace TW::Stellar;
+namespace TW::Stellar {
 
 bool Address::isValid(const std::string& string) {
     bool valid = false;
@@ -34,8 +34,8 @@ bool Address::isValid(const std::string& string) {
     }
 
     // ... and that checksums match
-    uint16_t checksum_expected = Crc::crc16(decoded.data(), 33);
-    uint16_t checksum_actual = static_cast<uint16_t>((decoded[34] << 8) | decoded[33]); // unsigned short (little endian)
+    auto checksum_expected = Crc::crc16(decoded.data(), 33);
+    auto checksum_actual = static_cast<uint16_t>((decoded[34] << 8) | decoded[33]); // unsigned short (little endian)
     if (valid && checksum_expected != checksum_actual) {
         valid = false;
     }
@@ -82,3 +82,5 @@ std::string Address::string() const {
     auto out = Base32::encode(bytesAsData);
     return out;
 }
+
+} // namespace TW::Stellar

@@ -6,11 +6,13 @@
 
 #include "Parameters.h"
 #include "ValueEncoder.h"
+#include <Hash.h>
 
 #include <cassert>
 #include <string>
 
 using namespace TW::Ethereum::ABI;
+using namespace TW;
 
 ParamSet::~ParamSet() {
     _params.clear();
@@ -18,10 +20,10 @@ ParamSet::~ParamSet() {
 
 /// Returns the index of the parameter
 int ParamSet::addParam(const std::shared_ptr<ParamBase>& param) {
-    assert(param.get() != nullptr);
     if (param.get() == nullptr) {
         return -1;
     }
+    assert(param.get() != nullptr);
     _params.push_back(param);
     return static_cast<int>(_params.size() - 1);
 }
@@ -32,7 +34,7 @@ void ParamSet::addParams(const std::vector<std::shared_ptr<ParamBase>>& params) 
     }
 }
 
-bool ParamSet::getParam(int paramIndex, std::shared_ptr<ParamBase>& param_out) const {
+bool ParamSet::getParam(size_t paramIndex, std::shared_ptr<ParamBase>& param_out) const {
     if (paramIndex >= _params.size() || paramIndex < 0) {
         return false;
     }
@@ -40,7 +42,7 @@ bool ParamSet::getParam(int paramIndex, std::shared_ptr<ParamBase>& param_out) c
     return true;
 }
 
-std::shared_ptr<ParamBase> ParamSet::getParamUnsafe(int paramIndex) const {
+std::shared_ptr<ParamBase> ParamSet::getParamUnsafe(size_t paramIndex) const {
     if (_params.size() == 0) {
         // zero parameter, nothing to return.  This may cause trouble (segfault)
         return nullptr;
@@ -57,14 +59,22 @@ std::string ParamSet::getType() const {
     std::string t = "(";
     int cnt = 0;
     for (auto p : _params) {
-        if (cnt > 0) {
+        if (cnt++ > 0) {
             t += ",";
         }
         t += p->getType();
-        ++cnt;
     }
     t += ")";
     return t;
+}
+
+bool ParamSet::isDynamic() const {
+    for (const auto& p: _params) {
+        if (p->isDynamic()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 size_t ParamSet::getSize() const {
@@ -142,4 +152,21 @@ bool ParamSet::decode(const Data& encoded, size_t& offset_inout) {
         }
     }
     return true;
+}
+
+Data ParamSet::encodeHashes() const {
+    Data hashes;
+    for (auto p: _params) {
+        append(hashes, p->hashStruct());
+    }
+    return hashes;
+}
+
+Data Parameters::hashStruct() const {
+    Data hash(32);
+    Data hashes = _params.encodeHashes();
+    if (hashes.size() > 0) {
+        hash = Hash::keccak256(hashes);
+    }
+    return hash;
 }

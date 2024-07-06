@@ -1,4 +1,4 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2022 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
@@ -9,10 +9,13 @@
 
 #include <TrezorCrypto/ecdsa.h>
 #include <TrezorCrypto/ed25519-donna/ed25519-blake2b.h>
+#include <TrezorCrypto/ed25519-donna/ed25519-donna.h>
 #include <TrezorCrypto/nist256p1.h>
 #include <TrezorCrypto/secp256k1.h>
 #include <TrezorCrypto/sodium/keypair.h>
-#include <TrezorCrypto/ed25519-donna/ed25519-donna.h>
+#include <TrezorCrypto/zilliqa.h>
+
+#include <iterator>
 
 namespace TW {
 
@@ -29,8 +32,8 @@ bool PublicKey::isValid(const Data& data, enum TWPublicKeyType type) {
     case TWPublicKeyTypeCURVE25519:
     case TWPublicKeyTypeED25519Blake2b:
         return size == ed25519Size;
-    case TWPublicKeyTypeED25519Extended:
-        return size == ed25519ExtendedSize;
+    case TWPublicKeyTypeED25519Cardano:
+        return size == cardanoKeySize;
     case TWPublicKeyTypeSECP256k1:
     case TWPublicKeyTypeNIST256p1:
         return size == secp256k1Size && (data[0] == 0x02 || data[0] == 0x03);
@@ -44,8 +47,9 @@ bool PublicKey::isValid(const Data& data, enum TWPublicKeyType type) {
 
 /// Initializes a public key with a collection of bytes.
 ///
-/// @throws std::invalid_argument if the data is not a valid public key.
-PublicKey::PublicKey(const Data& data, enum TWPublicKeyType type) : type(type) {
+/// \throws std::invalid_argument if the data is not a valid public key.
+PublicKey::PublicKey(const Data& data, enum TWPublicKeyType type)
+    : type(type) {
     if (!isValid(data, type)) {
         throw std::invalid_argument("Invalid public key data");
     }
@@ -72,8 +76,8 @@ PublicKey::PublicKey(const Data& data, enum TWPublicKeyType type) : type(type) {
         assert(data.size() == ed25519Size); // ensured by isValid() above
         std::copy(std::begin(data), std::end(data), std::back_inserter(bytes));
         break;
-    case TWPublicKeyTypeED25519Extended:
-        bytes.reserve(ed25519ExtendedSize);
+    case TWPublicKeyTypeED25519Cardano:
+        bytes.reserve(cardanoKeySize);
         std::copy(std::begin(data), std::end(data), std::back_inserter(bytes));
     }
 }
@@ -116,8 +120,10 @@ PublicKey PublicKey::extended() const {
     case TWPublicKeyTypeED25519:
     case TWPublicKeyTypeCURVE25519:
     case TWPublicKeyTypeED25519Blake2b:
-    case TWPublicKeyTypeED25519Extended:
-       return *this;
+    case TWPublicKeyTypeED25519Cardano:
+        return *this;
+    default:
+        return *this;
     }
 }
 
@@ -133,10 +139,11 @@ bool PublicKey::verify(const Data& signature, const Data& message) const {
         return ed25519_sign_open(message.data(), message.size(), bytes.data(), signature.data()) == 0;
     case TWPublicKeyTypeED25519Blake2b:
         return ed25519_sign_open_blake2b(message.data(), message.size(), bytes.data(), signature.data()) == 0;
-    case TWPublicKeyTypeED25519Extended:
-        throw std::logic_error("Not yet implemented");
-        //ed25519_sign_open(message.data(), message.size(), bytes.data(), signature.data()) == 0;
-    case TWPublicKeyTypeCURVE25519:
+    case TWPublicKeyTypeED25519Cardano: {
+        const auto key = subData(bytes, 0, ed25519Size);
+        return ed25519_sign_open(message.data(), message.size(), key.data(), signature.data()) == 0;
+    }
+    case TWPublicKeyTypeCURVE25519: {
         auto ed25519PublicKey = Data();
         ed25519PublicKey.resize(PublicKey::ed25519Size);
         curve25519_pk_to_ed25519(ed25519PublicKey.data(), bytes.data());
@@ -148,12 +155,31 @@ bool PublicKey::verify(const Data& signature, const Data& message) const {
         auto verifyBuffer = Data();
         append(verifyBuffer, signature);
         verifyBuffer[63] &= 127;
-        return ed25519_sign_open(message.data(), message.size(), ed25519PublicKey.data(),
-                                 verifyBuffer.data()) == 0;
+        return ed25519_sign_open(message.data(), message.size(), ed25519PublicKey.data(), verifyBuffer.data()) == 0;
+    }
+    default:
+        throw std::logic_error("Not yet implemented");
     }
 }
 
-bool PublicKey::verifySchnorr(const Data& signature, const Data& message) const {
+bool PublicKey::verifyAsDER(const Data& signature, const Data& message) const {
+    switch (type) {
+    case TWPublicKeyTypeSECP256k1:
+    case TWPublicKeyTypeSECP256k1Extended: {
+        Data sig(64);
+        int ret = ecdsa_sig_from_der(signature.data(), signature.size(), sig.data());
+        if (ret) {
+            return false;
+        }
+        return ecdsa_verify_digest(&secp256k1, bytes.data(), sig.data(), message.data()) == 0;
+    }
+
+    default:
+        return false;
+    }
+}
+
+bool PublicKey::verifyZilliqa(const Data& signature, const Data& message) const {
     switch (type) {
     case TWPublicKeyTypeSECP256k1:
     case TWPublicKeyTypeSECP256k1Extended:
@@ -162,7 +188,7 @@ bool PublicKey::verifySchnorr(const Data& signature, const Data& message) const 
     case TWPublicKeyTypeNIST256p1Extended:
     case TWPublicKeyTypeED25519:
     case TWPublicKeyTypeED25519Blake2b:
-    case TWPublicKeyTypeED25519Extended:
+    case TWPublicKeyTypeED25519Cardano:
     case TWPublicKeyTypeCURVE25519:
     default:
         return false;
@@ -171,7 +197,7 @@ bool PublicKey::verifySchnorr(const Data& signature, const Data& message) const 
 
 Data PublicKey::hash(const Data& prefix, Hash::Hasher hasher, bool skipTypeByte) const {
     const auto offset = std::size_t(skipTypeByte ? 1 : 0);
-    const auto hash = hasher(bytes.data() + offset, bytes.size() - offset);
+    const auto hash = Hash::hash(hasher, bytes.data() + offset, bytes.size() - offset);
 
     auto result = Data();
     result.reserve(prefix.size() + hash.size());
@@ -185,8 +211,9 @@ PublicKey PublicKey::recover(const Data& signature, const Data& message) {
         throw std::invalid_argument("signature too short");
     }
     auto v = signature[64];
+    // handle EIP155 Eth encoding of V, of the form 27+v, or 35+chainID*2+v
     if (v >= 27) {
-        v -= 27;
+        v = !(v & 0x01);
     }
     TW::Data result(65);
     if (ecdsa_recover_pub_from_sig(&secp256k1, result.data(), signature.data(), message.data(), v) != 0) {

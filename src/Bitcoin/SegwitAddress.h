@@ -1,4 +1,4 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2021 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
@@ -7,6 +7,7 @@
 #pragma once
 
 #include "../PublicKey.h"
+#include "Data.h"
 
 #include <cstdint>
 #include <string>
@@ -25,10 +26,10 @@ class SegwitAddress {
     std::string hrp;
 
     /// Witness program version.
-    int witnessVersion;
+    byte witnessVersion;
 
     /// Witness program.
-    std::vector<uint8_t> witnessProgram;
+    Data witnessProgram;
 
     /// Determines whether a string makes a valid Bech32 address.
     static bool isValid(const std::string& string);
@@ -39,11 +40,12 @@ class SegwitAddress {
 
     /// Initializes a Bech32 address with a human-readable part, a witness
     /// version, and a witness program.
-    SegwitAddress(std::string hrp, int witver, std::vector<uint8_t> witprog)
+    SegwitAddress(std::string hrp, byte witver, Data witprog)
         : hrp(std::move(hrp)), witnessVersion(witver), witnessProgram(std::move(witprog)) {}
 
-    /// Initializes a Bech32 address with a public key and a HRP prefix.
-    SegwitAddress(const PublicKey& publicKey, int witver, std::string hrp);
+    /// Initializes a segwit-version-0 Bech32 address with a public key and a HRP prefix.
+    /// Taproot (v>=1) is not supported by this method.
+    SegwitAddress(const PublicKey& publicKey, std::string hrp);
 
     /// Decodes a SegWit address.
     ///
@@ -56,8 +58,7 @@ class SegwitAddress {
     std::string string() const;
 
     /// Initializes a Bech32 address with raw data.
-    static std::pair<SegwitAddress, bool> fromRaw(const std::string& hrp,
-                                                  const std::vector<uint8_t>& data);
+    static std::pair<SegwitAddress, bool> fromRaw(const std::string& hrp, const Data& data);
 
     bool operator==(const SegwitAddress& rhs) const {
         return hrp == rhs.hrp && witnessVersion == rhs.witnessVersion &&

@@ -5,6 +5,7 @@
 // file LICENSE at the root of the source code distribution tree.
 
 #include "ParamFactory.h"
+#include "ParamAddress.h"
 #include "HexCoding.h"
 
 #include <nlohmann/json.hpp>
@@ -40,7 +41,7 @@ static bool isArrayType(const std::string& type) {
 }
 
 static std::string getArrayElemType(const std::string& arrayType) {
-    if (ends_with(arrayType, "[]") && arrayType.length() >= 3) {
+    if (isArrayType(arrayType)) {
         return arrayType.substr(0, arrayType.length() - 2);
     }
     return "";
@@ -96,16 +97,41 @@ std::shared_ptr<ParamBase> ParamFactory::make(const std::string& type) {
 
 std::string joinArrayElems(const std::vector<std::string>& strings) {
     auto array = json::array();
-    for (auto i = 0; i < strings.size(); ++i) {
+    for (const auto& string : strings) {
         // parse to prevent quotes on simple values
-        auto value = json::parse(strings[i], nullptr, false);
+        auto value = json::parse(string, nullptr, false);
         if (value.is_discarded()) {
             // fallback
-            value = json(strings[i]);
+            value = json(string);
         }
         array.push_back(value);
     }
     return array.dump();
+}
+
+std::shared_ptr<ParamNamed> ParamFactory::makeNamed(const std::string& name, const std::string& type) {
+    auto param = make(type);
+    if (!param) {
+        return nullptr;
+    }
+    return std::make_shared<ParamNamed>(name, param);
+}
+
+bool ParamFactory::isPrimitive(const std::string& type) {
+    if (starts_with(type, "address")) {
+        return true;
+    } else if (starts_with(type, "uint")) {
+        return true;
+    } else if (starts_with(type, "int")) {
+        return true;
+    } else if (starts_with(type, "bool")) {
+        return true;
+    } else if (starts_with(type, "bytes")) {
+        return true;
+    } else if (starts_with(type, "string")) {
+        return true;
+    }
+    return false;
 }
 
 std::string ParamFactory::getValue(const std::shared_ptr<ParamBase>& param, const std::string& type) {
@@ -169,7 +195,7 @@ std::vector<std::string> ParamFactory::getArrayValue(const std::shared_ptr<Param
     auto elemType = getArrayElemType(type);
     auto elems = array->getVal();
     std::vector<std::string> values(elems.size());
-    for (auto i = 0; i < elems.size(); ++i) {
+    for (auto i = 0ul; i < elems.size(); ++i) {
         values[i] = getValue(elems[i], elemType);
     }
     return values;

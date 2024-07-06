@@ -9,23 +9,38 @@
 #include "Address.h"
 #include "Signer.h"
 
-using namespace TW::Cosmos;
+using namespace TW;
 using namespace std;
+
+namespace TW::Cosmos {
 
 // Note: avoid business logic from here, rather just call into classes like Address, Signer, etc.
 
-bool Entry::validateAddress(TWCoinType coin, const string& address, TW::byte, TW::byte, const char* hrp) const {
-    return Address::isValid(address, hrp);
+bool Entry::validateAddress(TWCoinType coin, const string& address, TW::byte, TW::byte, [[maybe_unused]] const char* hrp) const {
+    return Address::isValid(coin, address);
 }
 
-string Entry::deriveAddress(TWCoinType coin, const PublicKey& publicKey, TW::byte, const char* hrp) const {
-    return Address(hrp, publicKey).string();
+string Entry::deriveAddress(TWCoinType coin, const PublicKey& publicKey, TW::byte, [[maybe_unused]] const char* hrp) const {
+    return Address(coin, publicKey).string();
+}
+
+Data Entry::addressToData([[maybe_unused]] TWCoinType coin, const std::string& address) const {
+    Address addr;
+    if (!Address::decode(address, addr)) {
+        return Data();
+    }
+    return addr.getKeyHash();
 }
 
 void Entry::sign(TWCoinType coin, const TW::Data& dataIn, TW::Data& dataOut) const {
-    signTemplate<Signer, Proto::SigningInput>(dataIn, dataOut);
+    auto input = Proto::SigningInput();
+    input.ParseFromArray(dataIn.data(), (int)dataIn.size());
+    auto serializedOut = Signer::sign(input, coin).SerializeAsString();
+    dataOut.insert(dataOut.end(), serializedOut.begin(), serializedOut.end());
 }
 
-string Entry::signJSON(TWCoinType coin, const std::string& json, const Data& key) const { 
-    return Signer::signJSON(json, key);
+string Entry::signJSON(TWCoinType coin, const std::string& json, const Data& key) const {
+    return Signer::signJSON(json, key, coin);
 }
+
+} // namespace TW::Cosmos

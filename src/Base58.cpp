@@ -10,6 +10,7 @@
 #include "Hash.h"
 
 #include <algorithm>
+#include <iterator>
 #include <cctype>
 #include <cassert>
 
@@ -66,7 +67,7 @@ Data Base58::decodeCheck(const char* begin, const char* end, Hash::Hasher hasher
     }
 
     // re-calculate the checksum, ensure it matches the included 4-byte checksum
-    auto hash = hasher(result.data(), result.size() - 4);
+    auto hash = Hash::hash(hasher, result.data(), result.size() - 4);
     if (!std::equal(hash.begin(), hash.begin() + 4, result.end() - 4)) {
         return {};
     }
@@ -75,10 +76,10 @@ Data Base58::decodeCheck(const char* begin, const char* end, Hash::Hasher hasher
 }
 
 Data Base58::decode(const char* begin, const char* end) const {
-    auto it = begin;
+    const auto* it = begin;
 
     // Skip leading spaces.
-    it = std::find_if_not(it, end, std::isspace);
+    it = std::find_if_not(it, end, [](char c) { return std::isspace(c);});
 
     // Skip and count leading zeros.
     std::size_t zeroes = 0;
@@ -119,7 +120,7 @@ Data Base58::decode(const char* begin, const char* end) const {
     }
 
     // Skip trailing spaces.
-    it = std::find_if_not(it, end, std::isspace);
+    it = std::find_if_not(it, end, [](char c) { return std::isspace(c);});
     if (it != end) {
         // Extra charaters at the end
         return {};
@@ -143,7 +144,7 @@ Data Base58::decode(const char* begin, const char* end) const {
 std::string Base58::encodeCheck(const byte* begin, const byte* end, Hash::Hasher hasher) const {
     // add 4-byte hash check to the end
     Data dataWithCheck(begin, end);
-    auto hash = hasher(begin, end - begin);
+    auto hash = Hash::hash(hasher, begin, end - begin);
     dataWithCheck.insert(dataWithCheck.end(), hash.begin(), hash.begin() + 4);
     return encode(dataWithCheck);
 }

@@ -9,7 +9,7 @@
 #include "TransactionInput.h"
 #include "TransactionOutput.h"
 #include "../Bitcoin/SigHashType.h"
-#include "../Bitcoin/TransactionSigner.h"
+#include "../Bitcoin/SignatureBuilder.h"
 
 #include "../BinaryCoding.h"
 #include "../Hash.h"
@@ -18,7 +18,8 @@
 #include "Bitcoin/OpCodes.h"
 
 using namespace TW;
-using namespace TW::Decred;
+
+namespace TW::Decred {
 
 Bitcoin::Proto::TransactionPlan Signer::plan(const Bitcoin::Proto::SigningInput& input) noexcept {
     auto signer = Signer(std::move(input));
@@ -47,38 +48,35 @@ Proto::SigningOutput Signer::sign(const Bitcoin::Proto::SigningInput& input) noe
 }
 
 Result<Transaction, Common::Proto::SigningError> Signer::sign() {
-    if (txPlan.utxos.size() == 0 || transaction.inputs.size() == 0) {
+    if (txPlan.utxos.size() == 0 || _transaction.inputs.size() == 0) {
         return Result<Transaction, Common::Proto::SigningError>::failure(Common::Proto::Error_missing_input_utxos);
     }
 
-    signedInputs.clear();
-    std::copy(std::begin(transaction.inputs), std::end(transaction.inputs),
-              std::back_inserter(signedInputs));
+    signedInputs = _transaction.inputs;
 
     const auto hashSingle = Bitcoin::hashTypeIsSingle(static_cast<enum TWBitcoinSigHashType>(input.hash_type()));
-    for (auto i = 0; i < txPlan.utxos.size(); i += 1) {
+    for (auto i = 0ul; i < txPlan.utxos.size(); i += 1) {
         auto& utxo = txPlan.utxos[i];
 
         // Only sign TWBitcoinSigHashTypeSingle if there's a corresponding output
-        if (hashSingle && i >= transaction.outputs.size()) {
+        if (hashSingle && i >= _transaction.outputs.size()) {
             continue;
         }
-        auto script = Bitcoin::Script(utxo.script().begin(), utxo.script().end());
-        auto result = sign(script, i);
+        auto result = sign(utxo.script, i);
         if (!result) {
             return Result<Transaction, Common::Proto::SigningError>::failure(result.error());
         }
         signedInputs[i].script = result.payload();
     }
 
-    Transaction tx(transaction);
-    tx.inputs = move(signedInputs);
-    tx.outputs = transaction.outputs;
+    Transaction tx(_transaction);
+    tx.inputs = std::move(signedInputs);
+    tx.outputs = _transaction.outputs;
     return Result<Transaction, Common::Proto::SigningError>::success(std::move(tx));
 }
 
 Result<Bitcoin::Script, Common::Proto::SigningError> Signer::sign(Bitcoin::Script script, size_t index) {
-    assert(index < transaction.inputs.size());
+    assert(index < _transaction.inputs.size());
 
     Bitcoin::Script redeemScript;
     std::vector<Data> results;
@@ -89,27 +87,27 @@ Result<Bitcoin::Script, Common::Proto::SigningError> Signer::sign(Bitcoin::Scrip
     } else {
         return Result<Bitcoin::Script, Common::Proto::SigningError>::failure(result.error());
     }
-    auto txin = transaction.inputs[index];
+    auto txin = _transaction.inputs[index];
 
     if (script.isPayToScriptHash()) {
         script = Bitcoin::Script(results.front().begin(), results.front().end());
-        auto result = signStep(script, index);
-        if (!result) {
-            return Result<Bitcoin::Script, Common::Proto::SigningError>::failure(result.error());
+        auto result_ = signStep(script, index);
+        if (!result_) {
+            return Result<Bitcoin::Script, Common::Proto::SigningError>::failure(result_.error());
         }
-        results = result.payload();
+        results = result_.payload();
         results.push_back(script.bytes);
         redeemScript = script;
         results.push_back(redeemScript.bytes);
     }
 
-    return Result<Bitcoin::Script, Common::Proto::SigningError>::success(Bitcoin::Script(Bitcoin::TransactionSigner<Bitcoin::Transaction, Bitcoin::TransactionBuilder>::pushAll(results)));
+    return Result<Bitcoin::Script, Common::Proto::SigningError>::success(Bitcoin::Script(Bitcoin::SignatureBuilder<Bitcoin::Transaction>::pushAll(results)));
 }
 
 Result<std::vector<Data>, Common::Proto::SigningError> Signer::signStep(Bitcoin::Script script, size_t index) {
-    Transaction transactionToSign(transaction);
+    Transaction transactionToSign(_transaction);
     transactionToSign.inputs = signedInputs;
-    transactionToSign.outputs = transaction.outputs;
+    transactionToSign.outputs = _transaction.outputs;
 
     Data data;
     std::vector<Data> keys;
@@ -152,7 +150,7 @@ Result<std::vector<Data>, Common::Proto::SigningError> Signer::signStep(Bitcoin:
     } else if (script.matchMultisig(keys, required)) {
         auto results = std::vector<Data>{{}};
         for (auto& pubKey : keys) {
-            if (results.size() >= required + 1) {
+            if (results.size() >= required + 1ul) {
                 break;
             }
             auto keyHash = TW::Hash::ripemd(TW::Hash::blake256(pubKey));
@@ -180,7 +178,7 @@ Data Signer::createSignature(const Transaction& transaction, const Bitcoin::Scri
                              const Data& key, size_t index) {
     auto sighash = transaction.computeSignatureHash(script, index, static_cast<TWBitcoinSigHashType>(input.hash_type()));
     auto pk = PrivateKey(key);
-    auto signature = pk.signAsDER(Data(begin(sighash), end(sighash)), TWCurveSECP256k1);
+    auto signature = pk.signAsDER(Data(begin(sighash), end(sighash)));
     if (script.empty()) {
         return {};
     }
@@ -209,3 +207,5 @@ Data Signer::scriptForScriptHash(const Data& hash) const {
     }
     return Data(it->second.begin(), it->second.end());
 }
+
+} // namespace TW::Decred

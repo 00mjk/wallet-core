@@ -1,4 +1,4 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2022 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
@@ -25,7 +25,7 @@ std::vector<uint8_t> Transaction::serializeUnsigned() {
     builder.pushBack(nonce);
     builder.pushBack(gasPrice);
     builder.pushBack(gasLimit);
-    builder.pushBack(Address(payer).data);
+    builder.pushBack(Address(payer)._data);
     if (!payload.empty()) {
         builder.pushVar(payload);
     }

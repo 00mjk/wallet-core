@@ -1,4 +1,4 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2021 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
@@ -10,18 +10,30 @@
 #include "Script.h"
 #include "TransactionInput.h"
 #include "TransactionOutput.h"
+#include "TransactionPlan.h"
+#include "UTXO.h"
+#include "../PrivateKey.h"
 #include "../Hash.h"
-#include "../Data.h"
-
+#include "Data.h"
 #include "SignatureVersion.h"
+#include "../proto/Bitcoin.pb.h"
+
 #include <vector>
 
 namespace TW::Bitcoin {
 
+/// A list of transaction inputs
+template <typename TransactionInput>
+class TransactionInputs: public std::vector<TransactionInput> {};
+
+/// A list of transaction outputs
+template <typename TransactionOutput>
+class TransactionOutputs: public std::vector<TransactionOutput> {};
+
 struct Transaction {
 public:
     /// Transaction data format version (note, this is signed)
-    int32_t version = 1;
+    int32_t _version = 1;
 
     /// The block number or timestamp at which this transaction is unlocked
     ///
@@ -35,13 +47,13 @@ public:
     /// transaction may not be added to a block until after `lockTime`.
     uint32_t lockTime = 0;
 
-    /// A list of 1 or more transaction inputs or sources for coins
-    std::vector<TransactionInput> inputs;
+    // List of transaction inputs
+    TransactionInputs<TransactionInput> inputs;
 
-    /// A list of 1 or more transaction outputs or destinations for coins
-    std::vector<TransactionOutput> outputs;
+    // List of transaction outputs
+    TransactionOutputs<TransactionOutput> outputs;
 
-    TW::Hash::Hasher hasher = TW::Hash::sha256d;
+    TW::Hash::Hasher hasher = TW::Hash::HasherSha256d;
 
     /// Used for diagnostics; store previously estimated virtual size (if any; size in bytes)
     int previousEstimatedVirtualSize = 0;
@@ -49,8 +61,8 @@ public:
 public:
     Transaction() = default;
 
-    Transaction(int32_t version, uint32_t lockTime, TW::Hash::Hasher hasher = TW::Hash::sha256d)
-        : version(version), lockTime(lockTime), inputs(), outputs(), hasher(hasher) {}
+    Transaction(int32_t version, uint32_t lockTime = 0, TW::Hash::Hasher hasher = TW::Hash::HasherSha256d)
+        : _version(version), lockTime(lockTime), inputs(), outputs(), hasher(hasher) {}
 
     /// Whether the transaction is empty.
     bool empty() const { return inputs.empty() && outputs.empty(); }
@@ -98,8 +110,3 @@ private:
 };
 
 } // namespace TW::Bitcoin
-
-/// Wrapper for C interface.
-struct TWBitcoinTransaction {
-    TW::Bitcoin::Transaction impl;
-};

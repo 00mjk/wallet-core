@@ -8,13 +8,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
     - name: Install system dependencies
       run: |
-        # build-essential libboost-all-dev clang-9 ruby-full cmake
-        sudo apt-get install libc++-dev libc++abi-dev ninja-build lcov llvm clang-tidy libboost-all-dev
+        # build-essential clang-14 libc++-dev libc++abi-dev ruby-full cmake
+        sudo apt-get update && sudo apt-get install ninja-build lcov llvm-14 clang-tidy-14 libboost-all-dev --fix-missing
     - name: Cache internal dependencies
       id: internal_cache
       uses: actions/cache@v1.1.2
@@ -34,30 +34,22 @@ jobs:
       env:
         CC: /usr/bin/clang
         CXX: /usr/bin/clang++
-    - name: Prepare build with lint
-      if: github.ref == 'refs/heads/master'
+    - name: CMake (coverage/clang-tidy/clang-asan)
       run: |
-        cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Debug -DCLANG_TIDY=ON -DCODE_COVERAGE=ON -DCLANG_ASAN=ON
-      env:
-        CC: /usr/bin/clang
-        CXX: /usr/bin/clang++
-    - name: Prepare build without lint
-      if: github.ref != 'refs/heads/master'
-      run: |
-        cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Debug -DCODE_COVERAGE=ON
+        cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Debug -DTW_UNITY_BUILD=ON -DTW_CODE_COVERAGE=ON -DTW_ENABLE_CLANG_TIDY=ON -DTW_CLANG_ASAN=ON -GNinja
       env:
         CC: /usr/bin/clang
         CXX: /usr/bin/clang++
     - name: Build and test
       run: |
-        make -Cbuild -j12 tests TrezorCryptoTests
+        ninja -Cbuild tests TrezorCryptoTests
         build/trezor-crypto/crypto/tests/TrezorCryptoTests
-        build/tests/tests tests --gtest_output=xml
+        build/tests/tests --gtest_output=xml
       env:
         CC: /usr/bin/clang
         CXX: /usr/bin/clang++
         CK_TIMEOUT_MULTIPLIER: 4
-    - name: Gather code coverage
+    - name: Gather and check code coverage
       run: |
         sudo rm -rf coverage.info
         tools/coverage

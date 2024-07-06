@@ -15,11 +15,10 @@ TW_EXPORT_ENUM()
 enum TWCurve {
     TWCurveSECP256k1              /* "secp256k1" */,
     TWCurveED25519                /* "ed25519" */,
-    TWCurveED25519HD              /* "ed25519-hd" */,
     TWCurveED25519Blake2bNano     /* "ed25519-blake2b-nano" */,
     TWCurveCurve25519             /* "curve25519" */,
     TWCurveNIST256p1              /* "nist256p1" */,
-    TWCurveED25519Extended        /* "ed25519-cardano-seed" */,
+    TWCurveED25519ExtendedCardano /* "ed25519-cardano-seed" */,
     TWCurveNone
 };
 

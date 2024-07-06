@@ -6,9 +6,11 @@
 
 #pragma once
 
-#include "Transaction.h"
+#include "AssetTransfer.h"
+#include "OptInAssetTransaction.h"
+#include "Transfer.h"
 
-#include "../Data.h"
+#include "Data.h"
 #include "../PrivateKey.h"
 
 namespace TW::Algorand {
@@ -21,8 +23,11 @@ class Signer {
     /// Signs a Proto::SigningInput transaction
     static Proto::SigningOutput sign(const Proto::SigningInput& input) noexcept;
 
+    /// Signs a json Proto::SigningInput with private key
+    static std::string signJSON(const std::string& json, const Data& key);
+
     /// Signs the given transaction.
-    static Data sign(const PrivateKey& privateKey, Transaction& transaction) noexcept;
+    static Data sign(const PrivateKey& privateKey, const BaseTransaction& transaction) noexcept;
 };
 
 } // namespace TW::Algorand

@@ -1,4 +1,4 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2021 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "../Data.h"
+#include "Data.h"
 
 #include "OpCodes.h"
 #include <TrustWalletCore/TWCoinType.h>
@@ -68,14 +68,14 @@ class Script {
     /// Matches the script to a multisig script.
     bool matchMultisig(std::vector<Data>& publicKeys, int& required) const;
 
+    /// Builds a pay-to-public-key (P2PK) script from a public key.
+    static Script buildPayToPublicKey(const Data& publickKey);
+
     /// Builds a pay-to-public-key-hash (P2PKH) script from a public key hash.
     static Script buildPayToPublicKeyHash(const Data& hash);
 
     /// Builds a pay-to-script-hash (P2SH) script from a script hash.
     static Script buildPayToScriptHash(const Data& scriptHash);
-
-    /// Builds a pay-to-witness-program script, P2WSH or P2WPKH.
-    static Script buildPayToWitnessProgram(const Data& program);
 
     /// Builds a pay-to-witness-public-key-hash (P2WPKH) script from a public
     /// key hash.
@@ -83,6 +83,15 @@ class Script {
 
     /// Builds a pay-to-witness-script-hash (P2WSH) script from a script hash.
     static Script buildPayToWitnessScriptHash(const Data& scriptHash);
+
+    /// Builds a V0 pay-to-witness-program script, P2WSH or P2WPKH.
+    static Script buildPayToV0WitnessProgram(const Data& program);
+
+    /// Builds a V1 pay-to-witness-program script, P2TR (from a 32-byte Schnorr public key).
+    static Script buildPayToV1WitnessProgram(const Data& publicKey);
+
+    /// Builds an OP_RETURN script with given data
+    static Script buildOpReturnScript(const Data& data);
 
     /// Builds a appropriate lock script for the given
     /// address.

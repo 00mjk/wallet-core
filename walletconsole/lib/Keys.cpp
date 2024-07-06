@@ -25,16 +25,12 @@ using namespace std;
 Keys::Keys(ostream& out, const Coins& coins) : _out(out), _coins(coins) {
     // init a random mnemonic
     HDWallet newwall(128, "");
-    _currentMnemonic = newwall.mnemonic;
+    _currentMnemonic = newwall.getMnemonic();
 }
 
 void privateKeyToResult(const PrivateKey& priKey, string& res_out) {
     // take the key, but may need to take extension as well
     res_out = hex(priKey.bytes);
-    if (priKey.extensionBytes.size() > 0) {
-        res_out += hex(priKey.extensionBytes);
-        res_out += hex(priKey.chainCodeBytes);
-    }
 }
 
 bool Keys::newKey(const string& coinid, string& res) {
@@ -69,7 +65,7 @@ bool Keys::pubPri(const string& coinid, const string& p, string& res) {
     }
 }
 
-bool Keys::priPub(const string& p, string& res) {
+bool Keys::priPub([[maybe_unused]] const string& p, [[maybe_unused]] string& res) {
     _out << "Not yet implemented! :)" << endl;
     return false;
 }
@@ -81,7 +77,7 @@ void Keys::setMnemonic(const vector<string>& param) {
     }
     // concatenate
     string mnem = "";
-    for (int i = 1; i < param.size(); ++i) {
+    for (auto i = 1ul; i < param.size(); ++i) {
         if (i > 1) mnem += " ";
         mnem += param[i]; 
     }
@@ -104,12 +100,12 @@ bool Keys::newMnemonic(const string& param1, string& res) {
         return false;
     }
     HDWallet newwall(strength, "");
-    if (newwall.mnemonic.length() == 0) {
+    if (newwall.getMnemonic().length() == 0) {
         _out << "Error: no mnemonic generated." << endl;
         return false;
     }
     // store
-    _currentMnemonic = newwall.mnemonic;
+    _currentMnemonic = newwall.getMnemonic();
     res = _currentMnemonic;
     _out << "New mnemonic set." << endl;
     return false;
@@ -118,7 +114,7 @@ bool Keys::newMnemonic(const string& param1, string& res) {
 bool Keys::dumpSeed(string& res) {
     assert(_currentMnemonic.length() > 0); // a mnemonic is always set
     HDWallet wallet(_currentMnemonic, "");
-    string seedHex = hex(wallet.seed);
+    string seedHex = hex(wallet.getSeed());
     res = seedHex;
     return true;
 }

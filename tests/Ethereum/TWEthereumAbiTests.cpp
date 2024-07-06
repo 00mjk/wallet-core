@@ -41,7 +41,7 @@ TEST(TWEthereumAbi, FuncCreate1) {
     EXPECT_EQ(0, p2index);
     // check back get value
     auto p2val2 = TWEthereumAbiFunctionGetParamUInt64(func, p2index, true);
-    EXPECT_EQ(9, p2val2);
+    EXPECT_EQ(9ul, p2val2);
 
     auto type = WRAPS(TWEthereumAbiFunctionGetType(func));
     std::string type2 = TWStringUTF8Bytes(type.get());
@@ -187,7 +187,7 @@ TEST(TWEthereumAbi, EncodeFuncMonster) {
 
     // check back out params
     EXPECT_EQ(1, TWEthereumAbiFunctionGetParamUInt8(func, 0, false));
-    EXPECT_EQ(4, TWEthereumAbiFunctionGetParamUInt64(func, 3, false));
+    EXPECT_EQ(4ul, TWEthereumAbiFunctionGetParamUInt64(func, 3, false));
     EXPECT_EQ(true, TWEthereumAbiFunctionGetParamBool(func, 12, false));
     EXPECT_EQ(std::string("Hello, world!"), std::string(TWStringUTF8Bytes(WRAPS(TWEthereumAbiFunctionGetParamString(func, 13, false)).get())));
     WRAPD(TWEthereumAbiFunctionGetParamAddress(func, 14, false));
@@ -200,7 +200,7 @@ TEST(TWEthereumAbi, EncodeFuncMonster) {
 
     auto encoded = WRAPD(TWEthereumAbiEncode(func));
     Data enc2 = data(TWDataBytes(encoded.get()), TWDataSize(encoded.get()));
-    EXPECT_EQ(4 + 76 * 32, enc2.size());
+    EXPECT_EQ(4ul + 76 * 32, enc2.size());
 
     // delete
     TWEthereumAbiFunctionDelete(func);
@@ -216,14 +216,14 @@ TEST(TWEthereumAbi, DecodeOutputFuncCase1) {
     EXPECT_EQ(0, TWEthereumAbiFunctionAddParamUInt64(func, 0, true));
 
     // original output value
-    EXPECT_EQ(0, TWEthereumAbiFunctionGetParamUInt64(func, 0, true));
+    EXPECT_EQ(0ul, TWEthereumAbiFunctionGetParamUInt64(func, 0, true));
 
     // decode
     auto encoded = WRAPD(TWDataCreateWithHexString(WRAPS(TWStringCreateWithUTF8Bytes("0000000000000000000000000000000000000000000000000000000000000045")).get()));
     EXPECT_EQ(true, TWEthereumAbiDecodeOutput(func, encoded.get()));
 
     // new output value
-    EXPECT_EQ(0x45, TWEthereumAbiFunctionGetParamUInt64(func, 0, true));
+    EXPECT_EQ(0x45ul, TWEthereumAbiFunctionGetParamUInt64(func, 0, true));
 
     // delete
     TWEthereumAbiFunctionDelete(func);
@@ -238,11 +238,11 @@ TEST(TWEthereumAbi, GetParamWrongType) {
 
     // GetParameter with correct types
     EXPECT_EQ(1, TWEthereumAbiFunctionGetParamUInt8(func, 0, true));
-    EXPECT_EQ(2, TWEthereumAbiFunctionGetParamUInt64(func, 1, true));
+    EXPECT_EQ(2ul, TWEthereumAbiFunctionGetParamUInt64(func, 1, true));
 
     // GetParameter with wrong type, default value (0) is returned
     EXPECT_EQ(0, TWEthereumAbiFunctionGetParamUInt8(func, 1, true));
-    EXPECT_EQ(0, TWEthereumAbiFunctionGetParamUInt64(func, 0, true));
+    EXPECT_EQ(0ul, TWEthereumAbiFunctionGetParamUInt64(func, 0, true));
     EXPECT_EQ("00", hex(*(static_cast<const Data*>(WRAPD(TWEthereumAbiFunctionGetParamUInt256(func, 0, true)).get()))));
     EXPECT_EQ(false, TWEthereumAbiFunctionGetParamBool(func, 0, true));
     EXPECT_EQ("", std::string(TWStringUTF8Bytes(WRAPS(TWEthereumAbiFunctionGetParamString(func, 0, true)).get())));
@@ -250,7 +250,7 @@ TEST(TWEthereumAbi, GetParamWrongType) {
 
     // GetParameter with wrong index, default value (0) is returned
     EXPECT_EQ(0, TWEthereumAbiFunctionGetParamUInt8(func, 99, true));
-    EXPECT_EQ(0, TWEthereumAbiFunctionGetParamUInt64(func, 99, true));
+    EXPECT_EQ(0ul, TWEthereumAbiFunctionGetParamUInt64(func, 99, true));
     EXPECT_EQ("00", hex(*(static_cast<const Data*>(WRAPD(TWEthereumAbiFunctionGetParamUInt256(func, 99, true)).get()))));
     EXPECT_EQ(false, TWEthereumAbiFunctionGetParamBool(func, 99, true));
     EXPECT_EQ("", std::string(TWStringUTF8Bytes(WRAPS(TWEthereumAbiFunctionGetParamString(func, 99, true)).get())));
@@ -279,6 +279,62 @@ TEST(TWEthereumAbi, DecodeInvalidCall) {
 
     EXPECT_TRUE(decoded1 == nullptr);
     EXPECT_TRUE(decoded2 == nullptr);
+}
+
+TEST(TWEthereumAbi, encodeTyped) {
+    auto message = WRAPS(TWStringCreateWithUTF8Bytes(
+        R"({
+            "types": {
+                "EIP712Domain": [
+                    {"name": "name", "type": "string"},
+                    {"name": "version", "type": "string"},
+                    {"name": "chainId", "type": "uint256"},
+                    {"name": "verifyingContract", "type": "address"}
+                ],
+                "Person": [
+                    {"name": "name", "type": "string"},
+                    {"name": "wallets", "type": "address[]"}
+                ],
+                "Mail": [
+                    {"name": "from", "type": "Person"},
+                    {"name": "to", "type": "Person[]"},
+                    {"name": "contents", "type": "string"}
+                ]
+            },
+            "primaryType": "Mail",
+            "domain": {
+                "name": "Ether Mail",
+                "version": "1",
+                "chainId": 1,
+                "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+            },
+            "message": {
+                "from": {
+                    "name": "Cow",
+                    "wallets": [
+                        "CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+                        "DeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"
+                    ]
+                },
+                "to": [
+                    {
+                        "name": "Bob",
+                        "wallets": [
+                            "bBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+                            "B0BdaBea57B0BDABeA57b0bdABEA57b0BDabEa57",
+                            "B0B0b0b0b0b0B000000000000000000000000000"
+                        ]
+                    }
+                ],
+                "contents": "Hello, Bob!"
+            }
+        })"));
+    auto hash = WRAPD(TWEthereumAbiEncodeTyped(message.get()));
+
+    EXPECT_EQ(
+        hex(TW::data(TWDataBytes(hash.get()), TWDataSize(hash.get()))),
+        "a85c2e2b118698e88db68a8105b794a8cc7cec074e89ef991cb4f5f533819cc2"
+    );
 }
 
 } // namespace TW::Ethereum

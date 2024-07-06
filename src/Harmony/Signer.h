@@ -8,7 +8,7 @@
 
 #include "Staking.h"
 #include "Transaction.h"
-#include "../Data.h"
+#include "Data.h"
 #include "../Hash.h"
 #include "../PrivateKey.h"
 #include "../proto/Harmony.pb.h"
@@ -25,6 +25,8 @@ class Signer {
   public:
     /// Signs a Proto::SigningInput transaction
     static Proto::SigningOutput sign(const Proto::SigningInput& input) noexcept;
+    /// Signs a json Proto::SigningInput with private key
+    static std::string signJSON(const std::string& json, const Data& key);
 
   private:
     static Proto::SigningOutput
@@ -60,13 +62,13 @@ class Signer {
 
     /// Signs a hash with the given private key for the given chain identifier.
     ///
-    /// @returns the r, s, and v values of the transaction signature
+    /// \returns the r, s, and v values of the transaction signature
     static std::tuple<uint256_t, uint256_t, uint256_t>
     sign(const uint256_t &chainID, const PrivateKey &privateKey, const Data& hash) noexcept;
 
     /// R, S, and V values for the given chain identifier and signature.
     ///
-    /// @returns the r, s, and v values of the transaction signature
+    /// \returns the r, s, and v values of the transaction signature
     static std::tuple<uint256_t, uint256_t, uint256_t> values(const uint256_t &chainID,
                                                               const Data& signature) noexcept;
 
@@ -95,8 +97,3 @@ class Signer {
 };
 
 } // namespace TW::Harmony
-
-/// Wrapper for C interface.
-struct TWHarmonySigner {
-    TW::Harmony::Signer impl;
-};

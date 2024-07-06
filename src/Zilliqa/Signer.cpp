@@ -15,11 +15,13 @@
 
 #include <cassert>
 
+#include <google/protobuf/util/json_util.h>
 #include <nlohmann/json.hpp>
 
 using namespace TW;
-using namespace TW::Zilliqa;
 using ByteArray = ZilliqaMessage::ByteArray;
+
+namespace TW::Zilliqa {
 
 static inline Data prependZero(Data& data) {
     if (data.size() < 16) {
@@ -31,14 +33,14 @@ static inline Data prependZero(Data& data) {
 }
 
 static inline ByteArray* byteArray(Data& amount) {
-    auto array = new ByteArray();
+    auto* array = new ByteArray();
     amount = prependZero(amount);
     array->set_data(amount.data(), amount.size());
     return array;
 }
 
 static inline ByteArray* byteArray(const void* data, size_t size) {
-    auto array = new ByteArray();
+    auto* array = new ByteArray();
     array->set_data(data, size);
     return array;
 }
@@ -78,7 +80,8 @@ Data Signer::getPreImage(const Proto::SigningInput& input, Address& address) noe
         }
         break;
     }
-    default: break;
+    default:
+        break;
     }
 
     internal.set_allocated_amount(byteArray(amount));
@@ -93,7 +96,7 @@ Proto::SigningOutput Signer::sign(const Proto::SigningInput& input) noexcept {
     const auto preImage = Signer::getPreImage(input, address);
     const auto key = PrivateKey(Data(input.private_key().begin(), input.private_key().end()));
     const auto pubKey = key.getPublicKey(TWPublicKeyTypeSECP256k1);
-    const auto signature = key.signSchnorr(preImage, TWCurveSECP256k1);
+    const auto signature = key.signZilliqa(preImage);
     const auto transaction = input.transaction();
 
     // build json
@@ -128,3 +131,12 @@ Proto::SigningOutput Signer::sign(const Proto::SigningInput& input) noexcept {
 
     return output;
 }
+
+std::string Signer::signJSON(const std::string& json, const Data& key) {
+    auto input = Proto::SigningInput();
+    google::protobuf::util::JsonStringToMessage(json, &input);
+    input.set_private_key(key.data(), key.size());
+    return hex(Signer::sign(input).json());
+}
+
+} // namespace TW::Zilliqa

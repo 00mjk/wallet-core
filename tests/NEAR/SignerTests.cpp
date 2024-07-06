@@ -6,6 +6,7 @@
 
 #include "Base64.h"
 #include "Base58.h"
+#include "HexCoding.h"
 #include "proto/NEAR.pb.h"
 #include "NEAR/Signer.h"
 
@@ -23,7 +24,7 @@ TEST(NEARSigner, SignTx) {
     input.set_receiver_id("whatever.near");
 
     input.add_actions();
-    auto &transfer = *input.mutable_actions(0)->mutable_transfer();
+    auto& transfer = *input.mutable_actions(0)->mutable_transfer();
     Data deposit(16, 0);
     deposit[0] = 1;
     // uint128_t / little endian byte order
@@ -41,6 +42,7 @@ TEST(NEARSigner, SignTx) {
     auto outputInBase64 = Base64::encode(Data(signed_transaction.begin(), signed_transaction.end()));
 
     ASSERT_EQ(outputInBase64, "CQAAAHRlc3QubmVhcgCRez0mjUtY9/7BsVC9aNab4+5dTMOYVeNBU4Rlu3eGDQEAAAAAAAAADQAAAHdoYXRldmVyLm5lYXIPpHP9JpAd8pa+atxMxN800EDvokNSJLaYaRDmMML+9gEAAAADAQAAAAAAAAAAAAAAAAAAAACWmoMzIYbul1Xkg5MlUlgG4Ymj0tK7S0dg6URD6X4cTyLe7vAFmo6XExAO2m4ZFE2n6KDvflObIHCLodjQIb0B");
+    ASSERT_EQ(hex(output.hash()), "eea6e680f3ea51a7f667e9a801d0bfadf66e03d41ed54975b3c6006351461b32");
 }
 
 }

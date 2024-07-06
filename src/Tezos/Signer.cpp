@@ -1,11 +1,11 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2022 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
 // file LICENSE at the root of the source code distribution tree.
 
-#include "OperationList.h"
 #include "Signer.h"
+#include "OperationList.h"
 #include "../Hash.h"
 #include "../HexCoding.h"
 
@@ -15,12 +15,13 @@
 #include <string>
 
 using namespace TW;
-using namespace TW::Tezos;
+
+namespace TW::Tezos {
 
 Proto::SigningOutput Signer::sign(const Proto::SigningInput& input) noexcept {
     auto operationList = Tezos::OperationList(input.operation_list().branch());
     for (Proto::Operation operation : input.operation_list().operations()) {
-      operationList.addOperation(operation);
+        operationList.addOperation(operation);
     }
 
     auto signer = Signer();
@@ -58,3 +59,5 @@ Data Signer::signData(const PrivateKey& privateKey, const Data& data) {
     append(signedData, signature);
     return signedData;
 }
+
+} // namespace TW::Tezos

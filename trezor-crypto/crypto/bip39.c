@@ -44,23 +44,35 @@ CONFIDENTIAL struct {
   uint8_t seed[512 / 8];
 } bip39_cache[BIP39_CACHE_SIZE];
 
+void bip39_cache_clear(void) {
+  memzero(bip39_cache, sizeof(bip39_cache));
+  bip39_cache_index = 0;
+}
+
 #endif
 
-const char *mnemonic_generate(int strength) {
+// [wallet-core] Added output buffer
+const char *mnemonic_generate(int strength, char *buf, int buflen) {
   if (strength % 32 || strength < 128 || strength > 256) {
     return 0;
   }
   uint8_t data[32] = {0};
   random_buffer(data, 32);
-  const char *r = mnemonic_from_data(data, strength / 8);
+  const char *r = mnemonic_from_data(data, strength / 8, buf, buflen);
   memzero(data, sizeof(data));
   return r;
 }
 
-CONFIDENTIAL char mnemo[24 * 10];
+// [wallet-core] Global buffer no longer used
+//CONFIDENTIAL char mnemo[24 * 10];
 
-const char *mnemonic_from_data(const uint8_t *data, int len) {
+// [wallet-core] Added output buffer
+const char *mnemonic_from_data(const uint8_t *data, int len, char *buf, int buflen) {
   if (len % 4 || len < 16 || len > 32) {
+    return 0;
+  }
+  // [wallet-core] Check provided buffer validity, size
+  if (!buf || buflen < (BIP39_MAX_WORDS * (BIP39_MAX_WORD_LENGTH + 1))) {
     return 0;
   }
 
@@ -75,7 +87,7 @@ const char *mnemonic_from_data(const uint8_t *data, int len) {
   int mlen = len * 3 / 4;
 
   int i = 0, j = 0, idx = 0;
-  char *p = mnemo;
+  char *p = buf; // [wallet-core]
   for (i = 0; i < mlen; i++) {
     idx = 0;
     for (j = 0; j < 11; j++) {
@@ -89,10 +101,11 @@ const char *mnemonic_from_data(const uint8_t *data, int len) {
   }
   memzero(bits, sizeof(bits));
 
-  return mnemo;
+  return buf; // [wallet-core]
 }
 
-void mnemonic_clear(void) { memzero(mnemo, sizeof(mnemo)); }
+// [wallet-core] No longer used
+//void mnemonic_clear(void) { memzero(mnemo, sizeof(mnemo)); }
 
 int mnemonic_to_bits(const char *mnemonic, uint8_t *bits) {
   if (!mnemonic) {
@@ -241,7 +254,7 @@ void mnemonic_to_seed(const char *mnemonic, const char *passphrase,
 
 // binary search for finding the word in the wordlist
 int mnemonic_find_word(const char *word) {
-  int lo = 0, hi = BIP39_WORDS - 1;
+  int lo = 0, hi = BIP39_WORD_COUNT - 1;
   while (lo <= hi) {
     int mid = lo + (hi - lo) / 2;
     int cmp = strcmp(word, wordlist[mid]);
@@ -269,7 +282,7 @@ const char *mnemonic_complete_word(const char *prefix, int len) {
 }
 
 const char *mnemonic_get_word(int index) {
-  if (index >= 0 && index < BIP39_WORDS) {
+  if (index >= 0 && index < BIP39_WORD_COUNT) {
     return wordlist[index];
   } else {
     return NULL;

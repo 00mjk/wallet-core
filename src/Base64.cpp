@@ -37,9 +37,12 @@ void convertFromBase64Url(string& b) {
     size_t n = b.length();
     char* start = b.data();
     char* end = start + n;
-    for(auto p = start; p < end; ++p) {
-        if (*p == '-') { *p = '+'; }
-        else if (*p == '_') { *p = '/'; }
+    for (auto* p = start; p < end; ++p) {
+        if (*p == '-') {
+            *p = '+';
+        } else if (*p == '_') {
+            *p = '/';
+        }
     }
 }
 
@@ -50,22 +53,19 @@ void convertToBase64Url(string& b) {
     size_t n = b.length();
     char* start = b.data();
     char* end = start + n;
-    for(auto p = start; p < end; ++p) {
-        if (*p == '+') { *p = '-'; }
-        else if (*p == '/') { *p = '_'; }
+    for (auto* p = start; p < end; ++p) {
+        if (*p == '+') {
+            *p = '-';
+        } else if (*p == '/') {
+            *p = '_';
+        }
     }
 }
 
 Data decodeBase64Url(const string& val) {
-    Data bytes;
-    try {
-        return decode(val);
-    } catch (const exception& ex) {
-        // 2nd try: Base64URL format (replaced by '-' and '_' by '+' and '/' )
-        string base64Url = val;
-        convertFromBase64Url(base64Url);
-        return decode(base64Url);
-    }
+    string base64Url = val;
+    convertFromBase64Url(base64Url);
+    return decode(base64Url);
 }
 
 string encodeBase64Url(const Data& val) {

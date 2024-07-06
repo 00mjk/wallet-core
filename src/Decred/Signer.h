@@ -41,11 +41,11 @@ class Signer {
     Bitcoin::TransactionPlan txPlan;
 
     /// Transaction being signed.
-    Transaction transaction;
+    Transaction _transaction;
 
   private:
     /// List of signed inputs.
-    std::vector<TransactionInput> signedInputs;
+    Bitcoin::TransactionInputs<TransactionInput> signedInputs;
 
   public:
     /// Initializes a transaction signer.
@@ -59,7 +59,7 @@ class Signer {
         } else {
           txPlan = TransactionBuilder::plan(input);
         }
-        transaction = TransactionBuilder::build(txPlan, input.to_address(), input.change_address());
+        _transaction = TransactionBuilder::build(txPlan, input.to_address(), input.change_address());
     }
 
     /// Signs the transaction.

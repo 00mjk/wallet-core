@@ -4,10 +4,11 @@ options:
   createIntermediateGroups: true
 settings:
   base:
-    HEADER_SEARCH_PATHS: $(SRCROOT)/wallet-core ${SRCROOT}/trezor-crypto/crypto
-    SYSTEM_HEADER_SEARCH_PATHS: ${SRCROOT}/include ${SRCROOT}/../build/local/include ${SRCROOT}/trezor-crypto/include $(SRCROOT)/protobuf /usr/local/include
-    CLANG_CXX_LANGUAGE_STANDARD: c++17
+    HEADER_SEARCH_PATHS: $(SRCROOT)/wallet-core ${SRCROOT}/trezor-crypto/crypto  $(SRCROOT)/wallet-core-modules/base
+    SYSTEM_HEADER_SEARCH_PATHS: ${SRCROOT}/include ${SRCROOT}/../build/local/include ${SRCROOT}/trezor-crypto/include $(SRCROOT)/protobuf /usr/local/include /opt/homebrew/include
+    CLANG_CXX_LANGUAGE_STANDARD: c++20
     SWIFT_VERSION: 5.1
+    IPHONEOS_DEPLOYMENT_TARGET: 13.0
   configs:
     release:
       SWIFT_OPTIMIZATION_LEVEL: -Owholemodule
@@ -16,7 +17,6 @@ targets:
   WalletCore:
     type: framework
     platform: iOS
-    deploymentTarget: 12.0
     sources:
       - path: include
         headerVisibility: public
@@ -25,11 +25,18 @@ targets:
       - path: wallet-core
         headerVisibility: project
         excludes:
-        - ".vscode"
-        - "proto/*.proto"
-        - "Tron/Protobuf/*.proto"
-        - "Zilliqa/Protobuf/*.proto"
-        - "TON/*.md"
+          - ".vscode"
+          - "*.txt"
+          - "proto/*.proto"
+          - "Cosmos/Protobuf/*.proto"
+          - "Tron/Protobuf/*.proto"
+          - "Zilliqa/Protobuf/*.proto"
+      - path: wallet-core-modules
+        headerVisibility: project
+        excludes:
+          - ".vscode"
+          - "*.txt"
+          - "base/tests/*"
       - Sources
     dependencies:
       - target: trezor-crypto
@@ -44,14 +51,22 @@ targets:
     settings:
       SKIP_INSTALL: false
       SUPPORTS_MACCATALYST: true
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
       BUILD_LIBRARY_FOR_DISTRIBUTION: true
       INFOPLIST_FILE: 'Info.plist'
       CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION: YES_ERROR
       CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER: $(inherited) false
-      OTHER_CFLAGS: $(inherited) -Wno-comma
+      OTHER_CFLAGS: $(inherited) -Wno-comma -DNDEBUG
     postCompileScripts:
-      - script: ${PODS_ROOT}/SwiftLint/swiftlint --config ../.swiftlint.yml
+      - script: |
+          export PATH=/opt/homebrew/bin:$PATH; 
+          if which swiftlint >/dev/null; then
+            swiftlint
+          else
+            echo "warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint"
+          fi
         name: SwiftLint
+        shell: /bin/bash
 
   WalletCoreTests:
     type: bundle.unit-test
@@ -118,7 +133,8 @@ targets:
       - trezor-crypto/crypto/groestl.c
       - trezor-crypto/crypto/hmac_drbg.c
       - trezor-crypto/crypto/rfc6979.c
-      - trezor-crypto/crypto/schnorr.c
+      - trezor-crypto/crypto/zilliqa.c
+      - trezor-crypto/crypto/cardano.c
       - trezor-crypto/crypto/shamir.c
       - trezor-crypto/crypto/sodium/private/fe_25_5/fe.c
       - trezor-crypto/crypto/sodium/private/ed25519_ref10.c
@@ -126,6 +142,7 @@ targets:
       - trezor-crypto/crypto/sodium/keypair.c
     settings:
       GCC_WARN_64_TO_32_BIT_CONVERSION: NO
+      OTHER_CFLAGS: $(inherited) -Wno-comma
 
   protobuf:
     type: library.static
@@ -149,11 +166,15 @@ targets:
       - protobuf/google/protobuf/extension_set_heavy.cc
       - protobuf/google/protobuf/field_mask.pb.cc
       - protobuf/google/protobuf/generated_enum_util.cc
+      - protobuf/google/protobuf/generated_message_bases.cc
       - protobuf/google/protobuf/generated_message_reflection.cc
       - protobuf/google/protobuf/generated_message_table_driven.cc
       - protobuf/google/protobuf/generated_message_table_driven_lite.cc
+      - protobuf/google/protobuf/generated_message_tctable_full.cc
+      - protobuf/google/protobuf/generated_message_tctable_lite.cc
       - protobuf/google/protobuf/generated_message_util.cc
       - protobuf/google/protobuf/implicit_weak_message.cc
+      - protobuf/google/protobuf/inlined_string_field.cc
       - protobuf/google/protobuf/io/coded_stream.cc
       - protobuf/google/protobuf/io/gzip_stream.cc
       - protobuf/google/protobuf/io/io_win32.cc
@@ -170,6 +191,7 @@ targets:
       - protobuf/google/protobuf/parse_context.cc
       - protobuf/google/protobuf/reflection_ops.cc
       - protobuf/google/protobuf/repeated_field.cc
+      - protobuf/google/protobuf/repeated_ptr_field.cc
       - protobuf/google/protobuf/service.cc
       - protobuf/google/protobuf/source_context.pb.cc
       - protobuf/google/protobuf/struct.pb.cc
@@ -203,7 +225,6 @@ targets:
       - protobuf/google/protobuf/util/internal/protostream_objectsource.cc
       - protobuf/google/protobuf/util/internal/protostream_objectwriter.cc
       - protobuf/google/protobuf/util/internal/type_info.cc
-      - protobuf/google/protobuf/util/internal/type_info_test_helper.cc
       - protobuf/google/protobuf/util/internal/utility.cc
       - protobuf/google/protobuf/util/json_util.cc
       - protobuf/google/protobuf/util/message_differencer.cc

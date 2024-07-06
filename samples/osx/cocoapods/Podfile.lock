@@ -1,14 +1,14 @@
 PODS:
-  - SwiftProtobuf (1.9.0)
-  - TrustWalletCore (2.1.1):
-    - TrustWalletCore/Core (= 2.1.1)
-  - TrustWalletCore/Core (2.1.1):
+  - SwiftProtobuf (1.19.0)
+  - TrustWalletCore (2.9.5):
+    - TrustWalletCore/Core (= 2.9.5)
+  - TrustWalletCore/Core (2.9.5):
     - TrustWalletCore/Types
-  - TrustWalletCore/Types (2.1.1):
+  - TrustWalletCore/Types (2.9.5):
     - SwiftProtobuf
 
 DEPENDENCIES:
-  - TrustWalletCore (~> 2.1.0)
+  - TrustWalletCore
 
 SPEC REPOS:
   trunk:
@@ -16,9 +16,9 @@ SPEC REPOS:
     - TrustWalletCore
 
 SPEC CHECKSUMS:
-  SwiftProtobuf: ecbec1be9036d15655f6b3443a1c4ea693c97932
-  TrustWalletCore: cd0373c69fd9bf92700783287544ce6a9aab041b
+  SwiftProtobuf: 6ef3f0e422ef90d6605ca20b21a94f6c1324d6b3
+  TrustWalletCore: 52ec9b10c17c8d7443e848ff0e6adac4d39be9f0
 
-PODFILE CHECKSUM: a34fe0b289ed6fb4db3ae7964f62fa6b21ff0c0d
+PODFILE CHECKSUM: 68848e868fc9571d319a35d139d7901079a7fe36
 
-COCOAPODS: 1.9.3
+COCOAPODS: 1.11.3

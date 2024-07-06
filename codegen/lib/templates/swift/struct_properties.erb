@@ -1,14 +1,13 @@
-    var rawValue: TW<%= entity.name %>
 
 <%# Properties -%>
 <%- entity.properties.each do |property| -%>
+<%= property.comment_with_indent %>
     public var <%= SwiftHelper.format_name(property.name) %>: <%= SwiftHelper.type(property.return_type) %> {
 <%=   render('swift/method_forward.erb', { method: property }) -%>
     }
 
 <%- end -%>
-    init(rawValue: TW<%= entity.name %>) {
-        self.rawValue = rawValue
+    init() {
     }
 
 <%# Initializers -%>

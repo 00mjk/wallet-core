@@ -1,4 +1,4 @@
-// Copyright © 2017-2020 Trust Wallet.
+// Copyright © 2017-2021 Trust Wallet.
 //
 // This file is part of Trust. The full Trust copyright notice, including
 // terms governing use, modification, and redistribution, is contained in the
@@ -11,27 +11,31 @@
 
 #include <gtest/gtest.h>
 
+namespace TW::Bitcoin::TWScriptTests {
+
+// clang-format off
 const auto PayToScriptHash = WRAP(TWBitcoinScript, TWBitcoinScriptCreateWithData(DATA("a914" "4733f37cf4db86fbc2efed2500b4f4e49f312023" "87").get()));
 const auto PayToWitnessScriptHash = WRAP(TWBitcoinScript, TWBitcoinScriptCreateWithData(DATA("0020" "ff25429251b5a84f452230a3c75fd886b7fc5a7865ce4a7bb7a9d7c5be6da3db").get()));
 const auto PayToWitnessPublicKeyHash = WRAP(TWBitcoinScript, TWBitcoinScriptCreateWithData(DATA("0014" "79091972186c449eb1ded22b78e40d009bdf0089").get()));
 const auto PayToPublicKeySecp256k1 = WRAP(TWBitcoinScript, TWBitcoinScriptCreateWithData(DATA("21" "03c9f4836b9a4f77fc0d81f7bcb01b7f1b35916864b9476c241ce9fc198bd25432" "ac").get()));
 const auto PayToPublicKeyHash = WRAP(TWBitcoinScript, TWBitcoinScriptCreateWithData(DATA("76a914" "79091972186c449eb1ded22b78e40d009bdf0089" "88ac").get()));
+// clang-format on
 
 TEST(TWBitcoinScript, Create) {
     auto data = DATA("a9144733f37cf4db86fbc2efed2500b4f4e49f31202387");
     {
         auto script = WRAP(TWBitcoinScript, TWBitcoinScriptCreateWithData(data.get()));
         ASSERT_TRUE(script.get() != nullptr);
-        ASSERT_EQ(TWBitcoinScriptSize(script.get()), 23);
+        ASSERT_EQ(TWBitcoinScriptSize(script.get()), 23ul);
     }
     {
         auto script = WRAP(TWBitcoinScript, TWBitcoinScriptCreateWithBytes(TWDataBytes(data.get()), TWDataSize(data.get())));
         ASSERT_TRUE(script.get() != nullptr);
-        ASSERT_EQ(TWBitcoinScriptSize(script.get()), 23);
+        ASSERT_EQ(TWBitcoinScriptSize(script.get()), 23ul);
 
         auto scriptCopy = WRAP(TWBitcoinScript, TWBitcoinScriptCreateCopy(script.get()));
         ASSERT_TRUE(scriptCopy.get() != nullptr);
-        ASSERT_EQ(TWBitcoinScriptSize(scriptCopy.get()), 23);
+        ASSERT_EQ(TWBitcoinScriptSize(scriptCopy.get()), 23ul);
     }
 }
 
@@ -69,7 +73,7 @@ TEST(TWBitcoinScript, MatchPayToPubkey) {
     ASSERT_EQ(TWBitcoinScriptMatchPayToPubkey(PayToScriptHash.get()), nullptr);
 }
 
-TEST(TWBitcoinScript, TWBitcoinScriptMatchPayToPubkeyHash) {
+TEST(TWBitcoinScript, MatchPayToPubkeyHash) {
     const auto res = WRAPD(TWBitcoinScriptMatchPayToPubkeyHash(PayToPublicKeyHash.get()));
     ASSERT_TRUE(res.get() != nullptr);
     const auto hexRes = WRAPS(TWStringCreateWithHexData(res.get()));
@@ -112,12 +116,23 @@ TEST(TWBitcoinScript, Encode) {
     ASSERT_STREQ(TWStringUTF8Bytes(hexRes.get()), "17a9144733f37cf4db86fbc2efed2500b4f4e49f31202387");
 }
 
+TEST(TWBitcoinScript, BuildPayToPublicKey) {
+    const auto pubkey = DATA("03c9f4836b9a4f77fc0d81f7bcb01b7f1b35916864b9476c241ce9fc198bd25432");
+    const auto script = WRAP(TWBitcoinScript, TWBitcoinScriptBuildPayToPublicKey(pubkey.get()));
+    ASSERT_TRUE(script.get() != nullptr);
+    const auto hex = WRAPS(TWStringCreateWithHexData(WRAPD(TWBitcoinScriptData(script.get())).get()));
+    ASSERT_STREQ(TWStringUTF8Bytes(hex.get()), "21"
+                                               "03c9f4836b9a4f77fc0d81f7bcb01b7f1b35916864b9476c241ce9fc198bd25432"
+                                               "ac");
+}
+
 TEST(TWBitcoinScript, BuildPayToWitnessPubkeyHash) {
     const auto hash = DATA("79091972186c449eb1ded22b78e40d009bdf0089");
     const auto script = WRAP(TWBitcoinScript, TWBitcoinScriptBuildPayToWitnessPubkeyHash(hash.get()));
     ASSERT_TRUE(script.get() != nullptr);
     const auto hex = WRAPS(TWStringCreateWithHexData(WRAPD(TWBitcoinScriptData(script.get())).get()));
-    ASSERT_STREQ(TWStringUTF8Bytes(hex.get()), "0014" "79091972186c449eb1ded22b78e40d009bdf0089");
+    ASSERT_STREQ(TWStringUTF8Bytes(hex.get()), "0014"
+                                               "79091972186c449eb1ded22b78e40d009bdf0089");
 }
 
 TEST(TWBitcoinScript, BuildPayToWitnessScriptHash) {
@@ -125,7 +140,8 @@ TEST(TWBitcoinScript, BuildPayToWitnessScriptHash) {
     const auto script = WRAP(TWBitcoinScript, TWBitcoinScriptBuildPayToWitnessScriptHash(hash.get()));
     ASSERT_TRUE(script.get() != nullptr);
     const auto hex = WRAPS(TWStringCreateWithHexData(WRAPD(TWBitcoinScriptData(script.get())).get()));
-    ASSERT_STREQ(TWStringUTF8Bytes(hex.get()), "0020" "ff25429251b5a84f452230a3c75fd886b7fc5a7865ce4a7bb7a9d7c5be6da3db");
+    ASSERT_STREQ(TWStringUTF8Bytes(hex.get()), "0020"
+                                               "ff25429251b5a84f452230a3c75fd886b7fc5a7865ce4a7bb7a9d7c5be6da3db");
 }
 
 TEST(TWBitcoinScript, ScriptHash) {
@@ -208,6 +224,7 @@ TEST(TWBitcoinSigHashType, HashTypeForCoin) {
     EXPECT_EQ(TWBitcoinScriptHashTypeForCoin(TWCoinTypeLitecoin), (uint32_t)TWBitcoinSigHashTypeAll);
     EXPECT_EQ(TWBitcoinScriptHashTypeForCoin(TWCoinTypeZcash), (uint32_t)TWBitcoinSigHashTypeAll);
     EXPECT_EQ(TWBitcoinScriptHashTypeForCoin(TWCoinTypeBitcoinCash), (uint32_t)TWBitcoinSigHashTypeAll | (uint32_t)TWBitcoinSigHashTypeFork);
+    EXPECT_EQ(TWBitcoinScriptHashTypeForCoin(TWCoinTypeECash), (uint32_t)TWBitcoinSigHashTypeAll | (uint32_t)TWBitcoinSigHashTypeFork);
     EXPECT_EQ(TWBitcoinScriptHashTypeForCoin(TWCoinTypeBitcoinGold), (uint32_t)TWBitcoinSigHashTypeAll | (uint32_t)TWBitcoinSigHashTypeForkBTG);
 }
 
@@ -224,3 +241,5 @@ TEST(TWBitcoinSigHashType, IsNone) {
     EXPECT_FALSE(TWBitcoinSigHashTypeIsNone(TWBitcoinSigHashTypeAll));
     EXPECT_FALSE(TWBitcoinSigHashTypeIsNone(TWBitcoinSigHashTypeFork));
 }
+
+} // namespace TW::Bitcoin::TWScriptTests

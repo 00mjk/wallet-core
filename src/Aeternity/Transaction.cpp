@@ -10,8 +10,7 @@
 #include <Ethereum/RLP.h>
 #include <Hash.h>
 
-using namespace TW;
-using namespace TW::Aeternity;
+namespace TW::Aeternity {
 
 /// RLP returns a byte serialized representation
 Data Transaction::encode() {
@@ -43,7 +42,8 @@ TW::Data Transaction::buildTag(const std::string& address) {
 TW::Data Transaction::encodeSafeZero(uint256_t value) {
     if (value == 0) {
         return Ethereum::RLP::encode(Data{0});
-    } else {
-        return Ethereum::RLP::encode(value);
     }
+    return Ethereum::RLP::encode(value);
 }
+
+} // namespace TW::Aeternity

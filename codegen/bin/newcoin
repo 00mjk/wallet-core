@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 # Sript for creating new skeleton files for a new coin
-# 1. Add relevsant entry to coins.json (in order to minimize merge conflict, don't add at the very end)
+# 1. Add relevsant entry to registry.json (in order to minimize merge conflict, don't add at the very end)
 # 2. Invoke this script with the id of the coin, e.g.: codegen/bin/newcoin ethereum
 
 require 'erb'
@@ -14,9 +14,13 @@ require 'entity_decl'
 require 'code_generator'
 require 'coin_test_gen'
 
+$flag_comment = " // TODO remove if the blockchain already exists, or just remove this comment if not"
+
 # Transforms a coin name to a C++ name
 def self.format_name(coin)
     formatted = coin['name']
+    formatted = formatted.gsub(/-/, ' ')
+    formatted = formatted.gsub(/\./, ' ')
     formatted = formatted.gsub(/\s/, '')
     formatted
 end
@@ -52,18 +56,19 @@ end
 
 def insert_blockchain_type(coin)
     target_file = "include/TrustWalletCore/TWBlockchain.h"
-    line_number = File.readlines(target_file).count
-    target_line = "    TWBlockchain#{coin['blockchain']} = #{line_number - 17},\n"
+    line_number = File.readlines(target_file).count + 2 # add offset because of removed blockchain enum type
+    target_line = "    TWBlockchain#{coin['blockchain']} = #{line_number - 17}, " + $flag_comment + "\n"
     insert_target_line(target_file, target_line, "};\n")
 end
 
 def insert_coin_entry(coin)
     target_file = "src/Coin.cpp"
-    target_line = "#include \"#{format_name(coin)}/Entry.h\"\n"
+    entryName = coin['blockchain']
+    target_line = "#include \"#{entryName}/Entry.h\"" + $flag_comment + "\n"
     insert_target_line(target_file, target_line, "// end_of_coin_includes_marker_do_not_modify\n")
-    target_line = "#{format_name(coin)}::Entry #{format_name(coin)}DP;\n"
+    target_line = "#{entryName}::Entry #{entryName}DP;" + $flag_comment + "\n"
     insert_target_line(target_file, target_line, "// end_of_coin_dipatcher_declarations_marker_do_not_modify\n")
-    target_line = "        case TWCoinType#{format_name(coin)}: entry = &#{format_name(coin)}DP; break;\n"
+    target_line = "        case TWCoinType#{entryName}: entry = &#{entryName}DP; break;" + $flag_comment + "\n"
     insert_target_line(target_file, target_line, "        // end_of_coin_dipatcher_switch_marker_do_not_modify\n")
 end
 
@@ -71,19 +76,19 @@ def self.insert_target_line(target_file, target_line, original_line)
     lines = File.readlines(target_file)
     index = lines.index(target_line)
     if !index.nil?
-        puts "Line is already present, file: #{target_file}  line: '#{target_line}'"
+        puts "Line is already present, file: #{target_file}  line: #{target_line}"
         return true
     end
     index = lines.index(original_line)
     if index.nil?
-        puts "WARNING: Could not find line! file: #{target_file}  line: '#{original_line}'"
+        puts "WARNING: Could not find line! file: #{target_file}  line: #{original_line}"
         return false
     end
     lines.insert(index, target_line)
     File.open(target_file, "w+") do |f|
         f.puts(lines)
     end
-    puts "Updated file: #{target_file}  new line: '#{target_line}'"
+    puts "Updated file: #{target_file}  new line: #{target_line}"
     return true
 end
 
@@ -96,10 +101,10 @@ end
 coin_id = command_line_args[0]
 puts "New coin template for coin '#{coin_id}' requested"
 
-json_string = File.read('coins.json')
+json_string = File.read('registry.json')
 coins = JSON.parse(json_string).sort_by { |x| x['name'] }
 
-entity = EntityDecl.new(name: "New" + coin_id, is_struct: false)
+entity = EntityDecl.new(name: "New" + coin_id, is_struct: false, comment: '')
 file = "new"+ coin_id
 
 generator = CodeGenerator.new(entities: [entity], files: [file], output_folder: ".")
@@ -137,6 +142,6 @@ generate_file("newcoin/AddressTests.kt.erb", "android/app/src/androidTest/java/c
 generate_file("newcoin/SignerTests.kt.erb", "android/app/src/androidTest/java/com/trustwallet/core/app/blockchains/#{format_name_lowercase(coin)}", "Test#{name}Signer.kt", coin)
 generate_file("newcoin/Tests.swift.erb", "swift/Tests/Blockchains", "#{name}Tests.swift", coin)
 
-coin_test_gen.generate_coin_test_file(coin, 'TWCoinTypeTests.cpp.erb')
+coin_test_gen.generate_coin_test_file(coin, 'TWCoinTypeTests.cpp.erb', true)
 
 puts "please tools/generate-files to generate Swift/Java/Protobuf files"

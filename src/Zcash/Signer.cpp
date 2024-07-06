@@ -11,18 +11,16 @@
 #include "Transaction.h"
 #include "TransactionBuilder.h"
 
-using namespace TW;
-using namespace TW::Zcash;
+namespace TW::Zcash {
 
 TransactionPlan Signer::plan(const SigningInput& input) noexcept {
-    auto signer = Bitcoin::TransactionSigner<Transaction, TransactionBuilder>(std::move(input));
-    return signer.plan.proto();
+    auto plan = Bitcoin::TransactionSigner<Transaction, TransactionBuilder>::plan(input);
+    return plan.proto();
 }
 
 SigningOutput Signer::sign(const SigningInput& input) noexcept {
     SigningOutput output;
-    auto signer = Bitcoin::TransactionSigner<Transaction, TransactionBuilder>(std::move(input));
-    auto result = signer.sign();
+    auto result = Bitcoin::TransactionSigner<Transaction, TransactionBuilder>::sign(input);
     if (!result) {
         output.set_error(result.error());
     } else {
@@ -39,3 +37,5 @@ SigningOutput Signer::sign(const SigningInput& input) noexcept {
     }
     return output;
 }
+
+} // namespace TW::Zcash
